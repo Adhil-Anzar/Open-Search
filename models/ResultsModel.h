@@ -1,6 +1,6 @@
 #pragma once
 #include <QAbstractListModel>
-#include "structs/ResultItem.cpp"
+#include "structs/ResultItem.h"
 
 class ResultsModel : public QAbstractListModel {
     Q_OBJECT
@@ -22,6 +22,7 @@ public:
         HiddenRole,
         KeywordsRole,
         PathRole,
+        ScoreRole,
     };
 
     explicit ResultsModel(QObject *parent = nullptr);
@@ -39,7 +40,7 @@ public:
     bool getResults();
 
 private:
-    void runApp(const QString &exec, bool terminal);
+    void runApp(const ResultItem &item);
     QList<ResultItem> getDesktopEntries();
     static const QRegularExpression desktopCodeRegex;
     QList<ResultItem> m_items;

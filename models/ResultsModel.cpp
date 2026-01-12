@@ -1,4 +1,5 @@
 #include "ResultsModel.h"
+#include "static/staticvariables.h"
 #include <rapidfuzz/fuzz.hpp>
 
 #include <QDir>
@@ -43,6 +44,7 @@ QVariant ResultsModel::data(const QModelIndex &index, int role) const {
     case HiddenRole:       return item.hidden;
     case KeywordsRole:     return item.keywords;
     case PathRole:         return item.path;
+    case ScoreRole:        return item.score;
     default:               return {};
     }
 }
@@ -63,7 +65,8 @@ QHash<int, QByteArray> ResultsModel::roleNames() const {
         { StartupNotifyRole, "startupNotify"},
         { HiddenRole, "hidden" },
         { KeywordsRole, "keywords" },
-        { PathRole, "path"}
+        { PathRole, "path"},
+        { ScoreRole, "score"}
     };
 }
 void ResultsModel::clearItems(){
@@ -76,11 +79,11 @@ void ResultsModel::clearItems(){
 void ResultsModel::executeItem(const int index){
     if (m_items.isEmpty()) return;
     if (index == -1){
-        ResultsModel::runApp(m_items[0].exec, m_items[0].terminal);
+        ResultsModel::runApp(m_items[0]);
         return;
     }
     if (m_items.size() <= index) return;
-    ResultsModel::runApp(m_items[index].exec, m_items[index].terminal);
+    ResultsModel::runApp(m_items[index]);
 }
 void ResultsModel::setResults(const QList<ResultItem> &items) {
     if (m_items == items)
@@ -96,7 +99,6 @@ bool ResultsModel::getResults(){
     auto entries = ResultsModel::getDesktopEntries();
     if (entries.isEmpty())
         return false;
-    // Creates a thread that does equating stuff!!
     m_allItems = entries;
     return true;
 }
@@ -105,8 +107,8 @@ bool ResultsModel::searchResults(const QString &query){
     if (query.isEmpty())
         return false;
 
-    const bool isSimpleSearch = false;
-    const double threshold = 70;
+    const bool isSimpleSearch = !StaticVariables::useFuzzySearch;
+    const double threshold = StaticVariables::fuzzySearchThreshold;
 
     const std::string q = query.toLower().toStdString();
     QVector<ResultItem> results;
@@ -157,12 +159,7 @@ bool ResultsModel::searchResults(const QString &query){
 QList<ResultItem> ResultsModel::getDesktopEntries(){
     QList<ResultItem> entries;
 
-    QStringList dirs = {
-        "/usr/share/applications/",
-        QDir::homePath() + "/.local/share/flatpak/exports/share/applications/",
-        "/var/lib/flatpak/exports/share/applications/",
-        QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation)
-    };
+    QStringList dirs = StaticVariables::targetDirs;
 
     for (const QString &dirPath : dirs) {
         QDir dir(dirPath);
@@ -218,6 +215,7 @@ QList<ResultItem> ResultsModel::getDesktopEntries(){
             }
 
             if (!entry.name.isEmpty() && !entry.exec.isEmpty() && !entry.icon.isEmpty()) {
+
                 entries.append(entry);
             }
             else{
@@ -233,23 +231,16 @@ QList<ResultItem> ResultsModel::getDesktopEntries(){
     return entries;
 }
 
-void ResultsModel::runApp(const QString &exec, bool terminal){
+void ResultsModel::runApp(const ResultItem &item){
 
-    qDebug() << "exec: " << exec << "list: ";
-    QString m_exec = exec;
+    // setting Frequency
+    m_allItems[m_allItems.indexOf(item)].itemExecFrequency++;
+    QString m_exec = item.exec;
     m_exec.replace(ResultsModel::desktopCodeRegex, "");
-    m_exec = m_exec.simplified();/*
+    m_exec = m_exec.simplified();
 
-    QStringList parts = QProcess::splitCommand(m_exec);
-    QString program = parts.takeFirst();
-
-    qDebug() << "Program: " << program << " Part :" << parts;
-    if (parts.isEmpty())
-        QProcess::startDetached(program);
-    else
-        QProcess::startDetached(program, parts);*/
-    if (terminal)
-        QProcess::startDetached("kitty", QStringList() << "-e" << m_exec);
+    if (item.terminal)
+        QProcess::startDetached(StaticVariables::defaultTerminal, QStringList() << "-e" << m_exec);
     else
         QProcess::startDetached("sh", QStringList() << "-c" << m_exec);
 }
