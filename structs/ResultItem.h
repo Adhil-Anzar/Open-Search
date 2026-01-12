@@ -1,7 +1,9 @@
 #pragma once
 #include <QString>
+#include <QMap>
 #include "enums/ItemOrigin.cpp"
 #include "structs/ShortResultItem.h"
+#include <KIconLoader>
 
 struct ResultItem {
     QString name;           // Name= in .desktop
@@ -22,6 +24,8 @@ struct ResultItem {
     bool terminal = false;  // Terminal=true/false
     bool noDisplay = false; // NoDisplay=true/false
 
+
+    const static QMap<QString, std::function<void(ResultItem&, const QString&)>> entryFieldHandlers;
 
     bool operator==(const ResultItem& other) const
     {
@@ -53,5 +57,12 @@ struct ResultItem {
         r.itemExecFrequency = itemExecFrequency;
         return r;
     }
+    void setEntryField(const QString &key, const QString &value) {
+        auto handlers = entryFieldHandlers;
+        auto it = handlers.find(key);
+        if (it != handlers.end())
+            it.value()(*this, value);
+    }
+
 };
 

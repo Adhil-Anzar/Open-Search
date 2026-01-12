@@ -3,7 +3,7 @@
 #include <QQmlContext>
 #include <QDebug>
 #include <QIcon>
-#include <QStandardPaths>
+#include <chrono>
 
 #include "models/ResultsModel.h"
 
@@ -22,9 +22,17 @@ int main(int argc, char *argv[])
         []() { QCoreApplication::exit(-1); },
         Qt::QueuedConnection);
 
+    auto start = std::chrono::high_resolution_clock::now();
     ResultsModel resultsModel;
-    qmlRegisterType<ResultsModel>("Results", 1, 0, "ResultsModel");
     resultsModel.getResults();
+    qmlRegisterType<ResultsModel>("Results", 1, 0, "ResultsModel");
+
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+    qDebug() << "Took " << ms << " ms\n";
+
     engine.rootContext()->setContextProperty("resultsModel", &resultsModel);
 
 

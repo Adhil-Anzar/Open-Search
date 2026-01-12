@@ -7,7 +7,7 @@ find_package(ECM REQUIRED NO_MODULE)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick )
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick Concurrent)
 find_package(KF6 REQUIRED COMPONENTS IconThemes)
 find_package(rapidfuzz REQUIRED)
 
@@ -55,6 +55,7 @@ target_link_libraries(appOpenSearch
         Qt6::Gui
         Qt6::Qml
         Qt6::Quick
+        Qt6::Concurrent
         rapidfuzz::rapidfuzz
 )
 

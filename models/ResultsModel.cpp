@@ -12,8 +12,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <stdlib.h>
-
-#include <KIconLoader>
+#include <QtConcurrent>
 
 ResultsModel::ResultsModel(QObject *parent) : QAbstractListModel(parent) {}
 const QRegularExpression ResultsModel::desktopCodeRegex(R"(%[fFuUdDnNickvm])");
@@ -100,6 +99,7 @@ bool ResultsModel::getResults(){
     if (entries.isEmpty())
         return false;
     m_allItems = entries;
+    qDebug() << "Entries Found:" << entries.size();
     return true;
 }
 
@@ -160,6 +160,7 @@ QList<ResultItem> ResultsModel::getDesktopEntries(){
     QList<ResultItem> entries;
 
     QStringList dirs = StaticVariables::targetDirs;
+    qDebug() << dirs;
 
     for (const QString &dirPath : dirs) {
         QDir dir(dirPath);
@@ -171,6 +172,7 @@ QList<ResultItem> ResultsModel::getDesktopEntries(){
             if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) continue;
 
             ResultItem entry;
+            entry.origin = ItemOrigin::ApplicationDirectory;
             QTextStream in(&file);
             bool inDesktopSection = false;
             while (!in.atEnd()) {
@@ -189,42 +191,25 @@ QList<ResultItem> ResultsModel::getDesktopEntries(){
                 if (idx == -1) continue;
                 QString key = line.left(idx);
                 QString value = line.mid(idx + 1);
-
-                if (key == "Name") entry.name = value;
-                else if (key == "GenericName") entry.genericName = value;
-                else if (key == "Comment") entry.comment = value;
-                else if (key == "Exec") entry.exec = value;
-                else if (key == "Icon"){
-                    entry.icon = KIconLoader::global()->iconPath(value, KIconLoader::Desktop);
-                    if (entry.icon.isEmpty()){
-                        entry.icon = KIconLoader::global()->iconPath(value, KIconLoader::Any);
-                        if (entry.icon.isEmpty()){
-                            entry.icon = KIconLoader::global()->iconPath("preferences-desktop-display", KIconLoader::Any);
-                        }
-                    }
-                }
-                else if (key == "Type") entry.type = value;
-                else if (key == "Categories") entry.categories = value;
-                else if (key == "Terminal") entry.terminal = (value.toLower() == "true");
-                else if (key == "NoDisplay") entry.noDisplay = (value.toLower() == "true");
-                else if (key == "MimeType") entry.mimeType = value;
-                else if (key == "StartupNotify") entry.startupNotify = value;
-                else if (key == "Hidden") entry.hidden = value;
-                else if (key == "Keywords") entry.keywords = value;
-                else if (key == "Path") entry.path = value;
+                entry.setEntryField(key,value);
             }
 
-            if (!entry.name.isEmpty() && !entry.exec.isEmpty() && !entry.icon.isEmpty()) {
+            if (
+                !entry.name.isEmpty() &&
+                !entry.exec.isEmpty() &&
+                !entry.icon.isEmpty() &&
+                entry.terminal  != StaticVariables::ignoreTerminalApps &&
+                entry.noDisplay != StaticVariables::ignoreNoDisplayApps) {
 
                 entries.append(entry);
             }
-            else{
-                qDebug() << "Ignored Entries:" << entry.name
-                         << "\nUnder Dir:" << dir.path()
-                         << "Name:" << entry.name
-                         << "Exec:" << entry.exec
-                         << "Icon:" << entry.icon;
-            }
+            // else{
+            //     qDebug() << "Ignored Entries:" << entry.name
+            //              << "\nUnder Dir:" << dir.path()
+            //              << "Name:" << entry.name
+            //              << "Exec:" << entry.exec
+            //              << "Icon:" << entry.icon;
+            // }
             file.close();
         }
     }
@@ -235,6 +220,14 @@ void ResultsModel::runApp(const ResultItem &item){
 
     // setting Frequency
     m_allItems[m_allItems.indexOf(item)].itemExecFrequency++;
+
+    qDebug() << "Executing..." << item.exec;
+    qDebug()
+        << "Ignored Entries:" << item.name
+        << "Exec:" << item.exec
+        << "Terminal:" << item.terminal
+        << "Display:" << item.noDisplay;
+
     QString m_exec = item.exec;
     m_exec.replace(ResultsModel::desktopCodeRegex, "");
     m_exec = m_exec.simplified();

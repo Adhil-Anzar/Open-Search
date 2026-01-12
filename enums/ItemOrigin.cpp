@@ -1,8 +1,5 @@
 enum class ItemOrigin {
-    GlobalDir,
-    UserDir,
-    FlatpakGlobalDir,
-    FlatpakUserDir,
+    ApplicationDirectory,
     WebSearch,
     FolderSearch, // Future
     FileSearch, // Future
