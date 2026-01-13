@@ -169,7 +169,7 @@ Window {
                                 width: 30
                                 height: 30
                                 anchors.verticalCenter: parent.verticalCenter
-                                source: "file://" + icon
+                                source: "file://" + ItemUtils.resolveIconPath(icon)
                                 fillMode: Image.PreserveAspectFit
                             }
                             Item { width: 12; height: 12}

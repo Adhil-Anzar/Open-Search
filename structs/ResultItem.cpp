@@ -24,11 +24,12 @@ const QMap<QString, std::function<void(ResultItem&, const QString&)>> ResultItem
     {"Keywords", [](ResultItem &e, const QString &v){ e.keywords = v; }},
     {"Path", [](ResultItem &e, const QString &v){ e.path = v; }},
     {"Icon", [](ResultItem &e, const QString &v){
-        e.icon = KIconLoader::global()->iconPath(v, KIconLoader::Desktop);
-        if (e.icon.isEmpty()) {
-            e.icon = KIconLoader::global()->iconPath(v, KIconLoader::Any);
-            if (e.icon.isEmpty())
-                e.icon = KIconLoader::global()->iconPath("preferences-desktop-display", KIconLoader::Any);
-        }
+         e.icon = v;
+        // e.icon = KIconLoader::global()->iconPath(v, KIconLoader::Desktop);
+        // if (e.icon.isEmpty()) {
+        //     e.icon = KIconLoader::global()->iconPath(v, KIconLoader::Any);
+        //     if (e.icon.isEmpty())
+        //         e.icon = KIconLoader::global()->iconPath("preferences-desktop-display", KIconLoader::Any);
+        // }
     }}
 };

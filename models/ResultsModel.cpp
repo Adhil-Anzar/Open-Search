@@ -88,11 +88,18 @@ void ResultsModel::setResults(const QList<ResultItem> &items) {
     if (m_items == items)
         return;
     // Creates a thread that does equating stuff!!
-    QMetaObject::invokeMethod(this, [this, items]() {
-        beginResetModel();
-        m_items = items;
-        endResetModel();
-    }, Qt::QueuedConnection);
+    // QMetaObject::invokeMethod(this, [this, items]() {
+    //     beginResetModel();
+    //     m_items = items;
+    //     endResetModel();
+    // }, Qt::QueuedConnection);
+    const int size = items.size();
+    if (size == 0){
+        clearItems();
+    }
+    beginResetModel();
+    m_items = items;
+    endResetModel();
 }
 bool ResultsModel::getResults(){
     auto entries = ResultsModel::getDesktopEntries();
@@ -107,64 +114,39 @@ bool ResultsModel::searchResults(const QString &query){
     if (query.isEmpty())
         return false;
 
-    const bool isSimpleSearch = !StaticVariables::useFuzzySearch;
-    const double threshold = StaticVariables::fuzzySearchThreshold;
-
-    const std::string q = query.toLower().toStdString();
     QVector<ResultItem> results;
     results.reserve(m_allItems.size());
-    if (isSimpleSearch){
-        for (auto &it : m_allItems) {
-            if (it.name.contains(query, Qt::CaseInsensitive)) {
-                it.score = 100.0;
-                results.append(it);
-            }
-        }
-    }
-    else {
-        for (auto &it : m_allItems) {
-            double score = rapidfuzz::fuzz::partial_ratio(q, it.name.toLower().toStdString()) * 0.7;
-            score += std::max(score, rapidfuzz::fuzz::ratio(q, it.genericName.toLower().toStdString())) * 0.1;
-            score += std::max(score, rapidfuzz::fuzz::ratio(q, it.comment.toLower().toStdString())) * 0.1;
-            score += std::max(score, rapidfuzz::fuzz::ratio(q, it.keywords.toLower().toStdString())) * 0.1;
-            if (it.type != QString("Application"))
-                score -= 10;
+    const bool isSimpleSearch = StaticVariables::useFuzzySearch;
 
-            if (score > threshold) {
-                it.score = score;
-                results.append(it);
-            }
-        }
-    }
-    if (results.isEmpty())
-        return false;
+    if (!StaticVariables::useFuzzySearch) ResultsModel::beginSimpleSearch(results,query);
+    else ResultsModel::beginFuzzySearch(results,query.toLower().toStdString());
+
+    if (results.isEmpty()) return false;
 
     std::sort(results.begin(), results.end(),
               [query](ResultItem &a, ResultItem &b) { return a.matchScore(query) > b.matchScore(query); });
 
-    QMetaObject::invokeMethod(this, [this, results]() {
-        beginRemoveRows(QModelIndex(), 0, m_items.size() - 1);
-        m_items.clear();
-        endRemoveRows();
+    // QMetaObject::invokeMethod(this, [this, results]() {
+    //     beginRemoveRows(QModelIndex(), 0, m_items.size() - 1);
+    //     m_items.clear();
+    //     endRemoveRows();
 
-        beginInsertRows(QModelIndex(), 0, results.size() - 1);
-        for (const auto &si : results) {
-            m_items.append(si);
-        }
-        endInsertRows();
-    }, Qt::QueuedConnection);
+    //     beginInsertRows(QModelIndex(), 0, results.size() - 1);
+    //     for (const auto &si : results) {
+    //         m_items.append(si);
+    //     }
+    //     endInsertRows();
+    // }, Qt::QueuedConnection);
+    ResultsModel::setResults(results.toList());
     return true;
 }
 
 QList<ResultItem> ResultsModel::getDesktopEntries(){
-    QList<ResultItem> entries;
-
     QStringList dirs = StaticVariables::targetDirs;
-    qDebug() << dirs;
-
-    for (const QString &dirPath : dirs) {
-        QDir dir(dirPath);
-        if (!dir.exists()) continue;
+    return QtConcurrent::mappedReduced(dirs, [](const QString &dirString) -> QList<ResultItem>{
+        QList<ResultItem> entries;
+        auto dir = QDir(dirString);
+        if (!dir.exists()) return entries;
 
         QStringList desktopFiles = dir.entryList(QStringList() << "*.desktop", QDir::Files);
         for (const QString &fileName : desktopFiles) {
@@ -212,8 +194,11 @@ QList<ResultItem> ResultsModel::getDesktopEntries(){
             // }
             file.close();
         }
-    }
-    return entries;
+        return entries;
+    },
+    [](QList<ResultItem> &all, const QList<ResultItem> &part) {
+        all.append(part);
+    }).result();
 }
 
 void ResultsModel::runApp(const ResultItem &item){
@@ -236,4 +221,28 @@ void ResultsModel::runApp(const ResultItem &item){
         QProcess::startDetached(StaticVariables::defaultTerminal, QStringList() << "-e" << m_exec);
     else
         QProcess::startDetached("sh", QStringList() << "-c" << m_exec);
+}
+void ResultsModel::beginSimpleSearch(QVector<ResultItem> &results, const QString &query){
+    for (auto &it : m_allItems) {
+        if (it.name.contains(query, Qt::CaseInsensitive)) {
+            it.score = 100.0;
+            results.append(it);
+        }
+    }
+}
+void ResultsModel::beginFuzzySearch(QVector<ResultItem> &results, const std::string &query){
+    const double threshold = StaticVariables::fuzzySearchThreshold;
+    for (auto &it : m_allItems) {
+        double score = rapidfuzz::fuzz::partial_ratio(query, it.name.toLower().toStdString()) * 0.7;
+        score += rapidfuzz::fuzz::ratio(query, it.genericName.toLower().toStdString()) * 0.1;
+        score += rapidfuzz::fuzz::ratio(query, it.comment.toLower().toStdString()) * 0.1;
+        score += rapidfuzz::fuzz::ratio(query, it.keywords.toLower().toStdString()) * 0.1;
+        if (it.type != QString("Application"))
+            score -= 10;
+
+        if (score > threshold) {
+            it.score = score;
+            results.append(it);
+        }
+    }
 }

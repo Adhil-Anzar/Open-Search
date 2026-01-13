@@ -6,7 +6,7 @@
 #include <chrono>
 
 #include "models/ResultsModel.h"
-
+#include "models/ItemUtils.h"
 int main(int argc, char *argv[])
 {
     using namespace std::chrono;
@@ -26,6 +26,11 @@ int main(int argc, char *argv[])
     ResultsModel resultsModel;
     resultsModel.getResults();
     qmlRegisterType<ResultsModel>("Results", 1, 0, "ResultsModel");
+
+
+    ItemUtils itemUtils;
+    engine.rootContext()->setContextProperty("ItemUtils", &itemUtils);
+
 
 
     auto end = std::chrono::high_resolution_clock::now();

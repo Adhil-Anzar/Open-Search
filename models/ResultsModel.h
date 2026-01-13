@@ -40,6 +40,8 @@ public:
     bool getResults();
 
 private:
+    void beginSimpleSearch(QVector<ResultItem> &results, const QString &query);
+    void beginFuzzySearch(QVector<ResultItem> &results, const std::string &query);
     void runApp(const ResultItem &item);
     QList<ResultItem> getDesktopEntries();
     static const QRegularExpression desktopCodeRegex;

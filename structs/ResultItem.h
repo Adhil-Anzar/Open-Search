@@ -1,10 +1,11 @@
 #pragma once
 #include <QString>
 #include <QMap>
-#include "enums/ItemOrigin.cpp"
-#include "structs/ShortResultItem.h"
 #include <KIconLoader>
 
+#include "enums/ItemOrigin.cpp"
+#include "structs/ShortResultItem.h"
+#include "static/staticvariables.h"
 struct ResultItem {
     QString name;           // Name= in .desktop
     QString genericName;    // GenericName=
