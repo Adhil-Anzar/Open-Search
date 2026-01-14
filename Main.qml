@@ -17,7 +17,6 @@ Window {
     maximumWidth: width
     minimumHeight: height
     minimumWidth: width
-
     color: "#11000000"
     onActiveChanged: {
         if (!active) {
@@ -64,13 +63,13 @@ Window {
                 }
             }
         }
-        function executeItem(item){
-            var origin = resultsModel.getOrigin(item.currentIndex)
+        function executeItem(index){
+            var origin = resultsModel.getOrigin(index)
             if (origin === 2){
-                searchBox.text = resultsModel.getName(item.currentIndex);
+                searchBox.text = resultsModel.getName(index);
             }
             else if (origin === -1) return;
-            resultsModel.executeItem(item.currentIndex);
+            resultsModel.executeItem(index);
         }
 
         Column{
@@ -202,7 +201,7 @@ Window {
                                             else
                                                 return `<b>${type}</b> - ${genericName}`;
                                         }
-                                        else if (origin === 1 || origin === 2){
+                                        else if (origin === 1 || origin === 2 || origin === 3){
                                             return comment;
                                         }
                                         else{
@@ -215,6 +214,7 @@ Window {
                             }
                         }
                     }
+
                     ScrollBar.vertical: ScrollBar {
                         policy: ScrollBar.Auto
                         anchors.right: parent.right

@@ -1,6 +1,7 @@
 #include "searchfilters.h"
 #include <QUrl>
 #include "exprtk/exprtk.hpp"
+#include <QProcess>
 
 bool SearchFilters::useFuzzySearch = true;
 double SearchFilters::fuzzySearchThreshold = 57.0;
@@ -9,7 +10,12 @@ bool SearchFilters::useGoogleSearch = true;
 int SearchFilters::googleSearchInitCount = 8;
 double SearchFilters::googleSearchCurveMultiplier = 0.5;
 
+bool SearchFilters::useTerminalSearchExecution = true;
+int SearchFilters::terminalInitCount = 8;
+double SearchFilters::terminalCurveMutliplier = 0.5;
+
 bool SearchFilters::useCalculation = true;
+bool SearchFilters::useTerminalExecution = true;
 
 void SearchFilters::simpleSearch(QVector<ResultItem> &results, const QString &query, QList<ResultItem> &m_allItems){
     if (SearchFilters::useFuzzySearch) return;
@@ -55,7 +61,6 @@ void SearchFilters::googleSearch(QVector<ResultItem> &results, const QString &qu
     item.score = score;
     item.terminal = false;
     item.origin = ItemOrigin::WebSearch;
-
     results.append(item);
 }
 void SearchFilters::tryCalculate(QVector<ResultItem> &results, const QString &query){
@@ -83,6 +88,24 @@ void SearchFilters::tryCalculate(QVector<ResultItem> &results, const QString &qu
     item.score = 100.0;
     item.terminal = false;
     item.origin = ItemOrigin::Calculation;
-
+    results.append(item);
+}
+void SearchFilters::getExecuteTerminal(QVector<ResultItem> &results, const QString &query){
+    if (!SearchFilters::useTerminalSearchExecution) return;
+    const double threshold = SearchFilters::fuzzySearchThreshold;
+    const double score = qMin(
+        threshold + 10.0,
+        100.0 * (1.0 - std::exp(
+                     - SearchFilters::terminalCurveMutliplier * qMax(0, query.length()
+                     - SearchFilters::terminalInitCount)))
+        );
+    ResultItem item;
+    item.name = "Execute in Terminal";
+    item.icon = "utilities-terminal";
+    item.comment = QStringLiteral("Execute: \"%1\"").arg(query);
+    item.exec = query;
+    item.score = score;
+    item.terminal = true;
+    item.origin = ItemOrigin::TerminalExecution;
     results.append(item);
 }

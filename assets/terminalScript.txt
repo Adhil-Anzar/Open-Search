@@ -1,0 +1,12 @@
+#!/bin/bash
+
+text=" OpenSearch  ~ "
+cols=$(tput cols)
+cols=$((cols - 2))
+text_len=${#text}
+pad=$((cols - text_len))
+
+echo -n "╭─"
+echo -e "\033[47;30m$text$(printf '%*s' "$pad")\033[0m"
+
+echo -n "╰─ "

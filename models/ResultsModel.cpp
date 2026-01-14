@@ -13,6 +13,7 @@
 #include <QDesktopServices>
 #include <QGuiApplication>
 #include <QClipboard>
+#include <chrono>
 
 ResultsModel::ResultsModel(QObject *parent) : QAbstractListModel(parent) {}
 const QRegularExpression ResultsModel::desktopCodeRegex(R"(%[fFuUdDnNickvm])");
@@ -124,6 +125,7 @@ bool ResultsModel::getResults(){
 }
 
 bool ResultsModel::searchResults(const QString &query){
+    auto start = std::chrono::high_resolution_clock::now();
     if (query.isEmpty())
         return false;
 
@@ -134,16 +136,22 @@ bool ResultsModel::searchResults(const QString &query){
     SearchFilters::fuzzySearch(results,query.toLower().toStdString(),m_allItems);
     SearchFilters::googleSearch(results, query);
     SearchFilters::tryCalculate(results, query);
+    SearchFilters::getExecuteTerminal(results, query);
 
     if (results.isEmpty()) return false;
 
     std::sort(results.begin(), results.end(),
               [query](ResultItem &a, ResultItem &b) { return a.matchScore(query) > b.matchScore(query); });
     ResultsModel::setResults(results.toList());
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    qDebug() << "Search" << query << "Took: " << ms << " ms\n";
     return true;
 }
 
 QList<ResultItem> ResultsModel::getDesktopEntries(){
+
     QStringList dirs = StaticVariables::targetDirs;
     return QtConcurrent::mappedReduced(dirs, [](const QString &dirString) -> QList<ResultItem>{
         QList<ResultItem> entries;
@@ -187,13 +195,6 @@ QList<ResultItem> ResultsModel::getDesktopEntries(){
 
                 entries.append(entry);
             }
-            // else{
-            //     qDebug() << "Ignored Entries:" << entry.name
-            //              << "\nUnder Dir:" << dir.path()
-            //              << "Name:" << entry.name
-            //              << "Exec:" << entry.exec
-            //              << "Icon:" << entry.icon;
-            // }
             file.close();
         }
         return entries;
@@ -224,6 +225,30 @@ void ResultsModel::runApp(const ResultItem &item){
     if (item.origin == ItemOrigin::Calculation){
         QClipboard *clipboard = QGuiApplication::clipboard();
         clipboard->setText(item.name);
+        return;
+    }
+    if (item.origin == ItemOrigin::TerminalExecution){
+        QString userShell = qEnvironmentVariable("SHELL", "/bin/bash");
+        QString homeDir = QDir::homePath();
+        QString script;
+        QFile file(":/assets/terminalScript.txt");
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            qWarning() << "Cannot open terminal Script!";
+        }
+        else{
+            QTextStream in(&file);
+            script = in.readAll();
+        }
+        file.close();
+
+        QStringList args;
+        args << "--hold" << "-e" << userShell << "-c"
+             << QString("%1; echo '%2'; %3")
+                    .arg(script,
+                         QString(item.exec).replace("'", "'\"'\"'"),
+                         item.exec);
+
+        QProcess::startDetached(StaticVariables::defaultTerminal, args, homeDir);
         return;
     }
 
