@@ -1,3 +1,4 @@
+
 enum class ItemOrigin {
     ApplicationDirectory,
     WebSearch,

@@ -1,18 +1,16 @@
 #include "ResultsModel.h"
 #include "static/staticvariables.h"
-#include <rapidfuzz/fuzz.hpp>
+#include "static/searchfilters.h"
 
 #include <QDir>
-#include <QIcon>
-#include <QPixmap>
 #include <QFile>
 #include <QTextStream>
 #include <QStandardPaths>
 #include <QDebug>
 #include <QProcess>
-#include <QRegularExpression>
 #include <stdlib.h>
 #include <QtConcurrent>
+#include <QDesktopServices>
 
 ResultsModel::ResultsModel(QObject *parent) : QAbstractListModel(parent) {}
 const QRegularExpression ResultsModel::desktopCodeRegex(R"(%[fFuUdDnNickvm])");
@@ -44,6 +42,7 @@ QVariant ResultsModel::data(const QModelIndex &index, int role) const {
     case KeywordsRole:     return item.keywords;
     case PathRole:         return item.path;
     case ScoreRole:        return item.score;
+    case OriginRole:       return static_cast<int>(item.origin);;
     default:               return {};
     }
 }
@@ -65,7 +64,8 @@ QHash<int, QByteArray> ResultsModel::roleNames() const {
         { HiddenRole, "hidden" },
         { KeywordsRole, "keywords" },
         { PathRole, "path"},
-        { ScoreRole, "score"}
+        { ScoreRole, "score"},
+        { OriginRole, "origin"}
     };
 }
 void ResultsModel::clearItems(){
@@ -84,22 +84,22 @@ void ResultsModel::executeItem(const int index){
     if (m_items.size() <= index) return;
     ResultsModel::runApp(m_items[index]);
 }
-void ResultsModel::setResults(const QList<ResultItem> &items) {
+void ResultsModel::setResults(const QList<ResultItem> &items)
+{
     if (m_items == items)
         return;
-    // Creates a thread that does equating stuff!!
-    // QMetaObject::invokeMethod(this, [this, items]() {
-    //     beginResetModel();
-    //     m_items = items;
-    //     endResetModel();
-    // }, Qt::QueuedConnection);
-    const int size = items.size();
-    if (size == 0){
-        clearItems();
+    if (!m_items.isEmpty())
+    {
+        beginRemoveRows(QModelIndex(), 0, m_items.size() - 1);
+        m_items.clear();
+        endRemoveRows();
     }
-    beginResetModel();
-    m_items = items;
-    endResetModel();
+    if (!items.isEmpty())
+    {
+        beginInsertRows(QModelIndex(), 0, items.size() - 1);
+        m_items = items;
+        endInsertRows();
+    }
 }
 bool ResultsModel::getResults(){
     auto entries = ResultsModel::getDesktopEntries();
@@ -116,27 +116,15 @@ bool ResultsModel::searchResults(const QString &query){
 
     QVector<ResultItem> results;
     results.reserve(m_allItems.size());
-    const bool isSimpleSearch = StaticVariables::useFuzzySearch;
 
-    if (!StaticVariables::useFuzzySearch) ResultsModel::beginSimpleSearch(results,query);
-    else ResultsModel::beginFuzzySearch(results,query.toLower().toStdString());
+    SearchFilters::simpleSearch(results,query,m_allItems);
+    SearchFilters::fuzzySearch(results,query.toLower().toStdString(),m_allItems);
+    SearchFilters::googleSearch(results, query);
 
     if (results.isEmpty()) return false;
 
     std::sort(results.begin(), results.end(),
               [query](ResultItem &a, ResultItem &b) { return a.matchScore(query) > b.matchScore(query); });
-
-    // QMetaObject::invokeMethod(this, [this, results]() {
-    //     beginRemoveRows(QModelIndex(), 0, m_items.size() - 1);
-    //     m_items.clear();
-    //     endRemoveRows();
-
-    //     beginInsertRows(QModelIndex(), 0, results.size() - 1);
-    //     for (const auto &si : results) {
-    //         m_items.append(si);
-    //     }
-    //     endInsertRows();
-    // }, Qt::QueuedConnection);
     ResultsModel::setResults(results.toList());
     return true;
 }
@@ -204,45 +192,29 @@ QList<ResultItem> ResultsModel::getDesktopEntries(){
 void ResultsModel::runApp(const ResultItem &item){
 
     // setting Frequency
-    m_allItems[m_allItems.indexOf(item)].itemExecFrequency++;
+    if (item.origin == ItemOrigin::ApplicationDirectory){
+        m_allItems[m_allItems.indexOf(item)].itemExecFrequency++;
+    }
 
     qDebug() << "Executing..." << item.exec;
     qDebug()
-        << "Ignored Entries:" << item.name
+        << "Entry:" << item.name
         << "Exec:" << item.exec
         << "Terminal:" << item.terminal
-        << "Display:" << item.noDisplay;
+        << "No Display:" << item.noDisplay;
+
+    if (item.origin == ItemOrigin::WebSearch){
+        QDesktopServices::openUrl(QUrl(item.exec));
+        return;
+    }
 
     QString m_exec = item.exec;
     m_exec.replace(ResultsModel::desktopCodeRegex, "");
     m_exec = m_exec.simplified();
 
+
     if (item.terminal)
         QProcess::startDetached(StaticVariables::defaultTerminal, QStringList() << "-e" << m_exec);
     else
         QProcess::startDetached("sh", QStringList() << "-c" << m_exec);
-}
-void ResultsModel::beginSimpleSearch(QVector<ResultItem> &results, const QString &query){
-    for (auto &it : m_allItems) {
-        if (it.name.contains(query, Qt::CaseInsensitive)) {
-            it.score = 100.0;
-            results.append(it);
-        }
-    }
-}
-void ResultsModel::beginFuzzySearch(QVector<ResultItem> &results, const std::string &query){
-    const double threshold = StaticVariables::fuzzySearchThreshold;
-    for (auto &it : m_allItems) {
-        double score = rapidfuzz::fuzz::partial_ratio(query, it.name.toLower().toStdString()) * 0.7;
-        score += rapidfuzz::fuzz::ratio(query, it.genericName.toLower().toStdString()) * 0.1;
-        score += rapidfuzz::fuzz::ratio(query, it.comment.toLower().toStdString()) * 0.1;
-        score += rapidfuzz::fuzz::ratio(query, it.keywords.toLower().toStdString()) * 0.1;
-        if (it.type != QString("Application"))
-            score -= 10;
-
-        if (score > threshold) {
-            it.score = score;
-            results.append(it);
-        }
-    }
 }

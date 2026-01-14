@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
     ResultsModel resultsModel;
     resultsModel.getResults();
     qmlRegisterType<ResultsModel>("Results", 1, 0, "ResultsModel");
+    qmlRegisterType<ItemOrigin>("IOrigin",1,0,"ItemOrigin");
 
 
     ItemUtils itemUtils;

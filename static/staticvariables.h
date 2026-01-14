@@ -8,6 +8,10 @@ public:
     static bool useFuzzySearch;
     static double fuzzySearchThreshold;
 
+    static bool useGoogleSearch;
+    static int googleSearchInitCount;
+    static double googleSearchCurveMultiplier;
+
     static bool ignoreTerminalApps;
     static bool ignoreNoDisplayApps;
     static QString defaultTerminal;

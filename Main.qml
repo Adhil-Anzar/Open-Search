@@ -183,7 +183,20 @@ Window {
                                     font.pixelSize: 16
                                 }
                                 Text {
-                                    text: `<b>${type}</b>` + (genericName.toString() === "" ? "" : " - " + genericName)
+                                    text: {
+                                        if (origin === 0){
+                                            if (genericName === "" || genericName === null)
+                                                return `<b>${type}</b>`;
+                                            else
+                                                return `<b>${type}</b> - ${genericName}`;
+                                        }
+                                        else if (origin === 1){
+                                            return comment;
+                                        }
+                                        else{
+                                            return "Not Implemented";
+                                        }
+                                    }
                                     color: "#AAAAAA"
                                     font.pixelSize: 12
                                 }

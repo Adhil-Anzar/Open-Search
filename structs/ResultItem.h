@@ -1,8 +1,8 @@
 #pragma once
 #include <QString>
 #include <QMap>
+#pragma once
 #include <KIconLoader>
-
 #include "enums/ItemOrigin.cpp"
 #include "structs/ShortResultItem.h"
 #include "static/staticvariables.h"
