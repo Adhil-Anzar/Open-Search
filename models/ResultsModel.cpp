@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <QtConcurrent>
 #include <QDesktopServices>
+#include <QGuiApplication>
+#include <QClipboard>
 
 ResultsModel::ResultsModel(QObject *parent) : QAbstractListModel(parent) {}
 const QRegularExpression ResultsModel::desktopCodeRegex(R"(%[fFuUdDnNickvm])");
@@ -46,6 +48,17 @@ QVariant ResultsModel::data(const QModelIndex &index, int role) const {
     default:               return {};
     }
 }
+QString ResultsModel::getName(int index){
+    if (m_items.isEmpty())
+        return "";
+    return m_items[index].name;
+}
+int ResultsModel::getOrigin(int index){
+    if (m_items.isEmpty())
+        return -1;
+    return static_cast<int>(m_items[index].origin);
+}
+
 
 QHash<int, QByteArray> ResultsModel::roleNames() const {
     return {
@@ -120,6 +133,7 @@ bool ResultsModel::searchResults(const QString &query){
     SearchFilters::simpleSearch(results,query,m_allItems);
     SearchFilters::fuzzySearch(results,query.toLower().toStdString(),m_allItems);
     SearchFilters::googleSearch(results, query);
+    SearchFilters::tryCalculate(results, query);
 
     if (results.isEmpty()) return false;
 
@@ -205,6 +219,11 @@ void ResultsModel::runApp(const ResultItem &item){
 
     if (item.origin == ItemOrigin::WebSearch){
         QDesktopServices::openUrl(QUrl(item.exec));
+        return;
+    }
+    if (item.origin == ItemOrigin::Calculation){
+        QClipboard *clipboard = QGuiApplication::clipboard();
+        clipboard->setText(item.name);
         return;
     }
 

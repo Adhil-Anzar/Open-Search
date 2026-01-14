@@ -1,8 +1,18 @@
 #include "searchfilters.h"
 #include <QUrl>
+#include "exprtk/exprtk.hpp"
+
+bool SearchFilters::useFuzzySearch = true;
+double SearchFilters::fuzzySearchThreshold = 57.0;
+
+bool SearchFilters::useGoogleSearch = true;
+int SearchFilters::googleSearchInitCount = 8;
+double SearchFilters::googleSearchCurveMultiplier = 0.5;
+
+bool SearchFilters::useCalculation = true;
 
 void SearchFilters::simpleSearch(QVector<ResultItem> &results, const QString &query, QList<ResultItem> &m_allItems){
-    if (StaticVariables::useFuzzySearch) return;
+    if (SearchFilters::useFuzzySearch) return;
     for (auto &it : m_allItems) {
         if (it.name.contains(query, Qt::CaseInsensitive)) {
             it.score = 100.0;
@@ -11,8 +21,8 @@ void SearchFilters::simpleSearch(QVector<ResultItem> &results, const QString &qu
     }
 }
 void SearchFilters::fuzzySearch(QVector<ResultItem> &results, const std::string &query, QList<ResultItem> &m_allItems){
-    if (!StaticVariables::useFuzzySearch) return;
-    const double threshold = StaticVariables::fuzzySearchThreshold;
+    if (!SearchFilters::useFuzzySearch) return;
+    const double threshold = SearchFilters::fuzzySearchThreshold;
     for (auto &it : m_allItems) {
         double score = rapidfuzz::fuzz::partial_ratio(query, it.name.toLower().toStdString()) * 0.7;
         score += rapidfuzz::fuzz::ratio(query, it.genericName.toLower().toStdString()) * 0.1;
@@ -28,13 +38,13 @@ void SearchFilters::fuzzySearch(QVector<ResultItem> &results, const std::string 
     }
 }
 void SearchFilters::googleSearch(QVector<ResultItem> &results, const QString &query){
-    if (!StaticVariables::useGoogleSearch) return;
-    const double threshold = StaticVariables::fuzzySearchThreshold;
+    if (!SearchFilters::useGoogleSearch) return;
+    const double threshold = SearchFilters::fuzzySearchThreshold;
     const double score = qMin(
         threshold + 10.0,
         100.0 * (1.0 - std::exp(
-                    - StaticVariables::googleSearchCurveMultiplier * qMax(0, query.length()
-                    - StaticVariables::googleSearchInitCount)))
+                    - SearchFilters::googleSearchCurveMultiplier * qMax(0, query.length()
+                    - SearchFilters::googleSearchInitCount)))
         );
     ResultItem item;
     item.name = "Search Google";
@@ -45,6 +55,34 @@ void SearchFilters::googleSearch(QVector<ResultItem> &results, const QString &qu
     item.score = score;
     item.terminal = false;
     item.origin = ItemOrigin::WebSearch;
+
+    results.append(item);
+}
+void SearchFilters::tryCalculate(QVector<ResultItem> &results, const QString &query){
+    if (!SearchFilters::useCalculation) return;
+    double result;
+
+    typedef exprtk::symbol_table<double> symbol_table_t;
+    typedef exprtk::expression<double> expression_t;
+    typedef exprtk::parser<double> parser_t;
+
+    expression_t expression;
+    symbol_table_t symbol_table;
+    expression.register_symbol_table(symbol_table);
+
+    parser_t parser;
+    if (parser.compile(query.toStdString(), expression))
+        result = expression.value();
+    else
+        return;
+    ResultItem item;
+    item.name = QString::number(result);
+    item.icon = "accessories-calculator";
+    item.comment = QStringLiteral("Calculated for: \"%1\"").arg(query);
+    item.exec = "Ignored";
+    item.score = 100.0;
+    item.terminal = false;
+    item.origin = ItemOrigin::Calculation;
 
     results.append(item);
 }

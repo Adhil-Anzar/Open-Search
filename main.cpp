@@ -26,21 +26,17 @@ int main(int argc, char *argv[])
     ResultsModel resultsModel;
     resultsModel.getResults();
     qmlRegisterType<ResultsModel>("Results", 1, 0, "ResultsModel");
-    qmlRegisterType<ItemOrigin>("IOrigin",1,0,"ItemOrigin");
-
 
     ItemUtils itemUtils;
     engine.rootContext()->setContextProperty("ItemUtils", &itemUtils);
 
+    engine.rootContext()->setContextProperty("resultsModel", &resultsModel);
 
 
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
     qDebug() << "Took " << ms << " ms\n";
-
-    engine.rootContext()->setContextProperty("resultsModel", &resultsModel);
-
 
     engine.loadFromModule("OpenSearch", "Main");
 

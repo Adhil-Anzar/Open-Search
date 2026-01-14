@@ -33,6 +33,8 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
 
+    Q_INVOKABLE QString getName(int index);
+    Q_INVOKABLE int getOrigin(int index);
     Q_INVOKABLE bool searchResults(const QString &searchQuery = {});
     Q_INVOKABLE void clearItems();
     Q_INVOKABLE void executeItem(const int index);

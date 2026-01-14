@@ -41,9 +41,9 @@ Window {
         event => {
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter){
                 if (results.currentIndex === -1)
-                    resultsModel.executeItem(0);
+                    executeItem(0)
                 else
-                    resultsModel.executeItem(results.currentIndex);
+                    executeItem(results.currentIndex);
             }
             else if (event.key === Qt.Key_Escape) {
                 root.close();
@@ -64,6 +64,15 @@ Window {
                 }
             }
         }
+        function executeItem(item){
+            var origin = resultsModel.getOrigin(item.currentIndex)
+            if (origin === 2){
+                searchBox.text = resultsModel.getName(item.currentIndex);
+            }
+            else if (origin === -1) return;
+            resultsModel.executeItem(item.currentIndex);
+        }
+
         Column{
             anchors.fill: parent
 
@@ -89,6 +98,7 @@ Window {
                     height: parent.height - 4
                     Item { width: 10; height: 10; }
                     Image {
+                        id: searchBoxImage
                         fillMode: Image.PreserveAspectFit
                         width: parent.height - 20
                         height: width
@@ -98,7 +108,7 @@ Window {
                     }
                     Item { width: 10; height: 10; }
                     Item{
-                        width: 500
+                        width: parent.width - searchBoxImage.width - 30
                         height: parent.height
                         anchors.verticalCenter: parent.verticalCenter
                         TextField {
@@ -155,7 +165,9 @@ Window {
                         height: 56
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: results.currentIndex = results.currentIndex === index ? -1 : index
+                            onClicked: {
+                                results.currentIndex = results.currentIndex === index ? -1 : index;
+                            }
                         }
                         Rectangle {
                             anchors.fill: parent
@@ -190,7 +202,7 @@ Window {
                                             else
                                                 return `<b>${type}</b> - ${genericName}`;
                                         }
-                                        else if (origin === 1){
+                                        else if (origin === 1 || origin === 2){
                                             return comment;
                                         }
                                         else{

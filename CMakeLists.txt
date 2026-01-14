@@ -30,6 +30,7 @@ qt_add_qml_module(appOpenSearch
         models/ResultsModel.cpp
 
     RESOURCES resources.qrc
+    SOURCES exprtk/exprtk.hpp
     SOURCES enums/ItemOrigin.cpp
     SOURCES static/staticvariables.h static/staticvariables.cpp
     SOURCES structs/ShortResultItem.h
